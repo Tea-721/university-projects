@@ -19,6 +19,10 @@
 - JavaScript：游戏逻辑实现（蛇的移动、碰撞检测、分数计算等）
 
 ## 📂 文件结构
+TZ-SnakeGame/
+├── index.html    # 游戏主页面
+├── style.css     # 样式文件
+└── script.js     # 游戏逻辑
 
 /*
 大一生活已经快结束了，一直在虚度光阴
