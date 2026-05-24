@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>TZT贪吃的蛇</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a14;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: monospace;
+  overflow: hidden;
+  color: #e8d5b7;
+}
+#game-container {
+  position: relative;
+  width: 400px;
+  height: 400px;
+  max-width: 95vmin;
+  max-height: 95vmin;
+}
+canvas {
+  width: 100%;
+  height: 100%;
+  border: 2px solid #2a2a4a;
+  border-radius: 4px;
+  image-rendering: pixelated;
+}
+#score-bar {
+  display: none;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+#score-bar .current { color: #f0c040; font-size: 18px; }
+#score-bar .high { color: #8b7e74; }
+#controls-hint {
+  display: none;
+  text-align: center;
+  font-size: 11px;
+  color: #4a4a5a;
+  margin-top: 8px;
+}
+.ui-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+.ui-overlay.active { display: flex; }
+#menu-ui {
+  background: rgba(10, 10, 20, 0.85);
+}
+#menu-ui h1 { font-size: 28px; margin-bottom: 4px; }
+#menu-ui .subtitle {
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: #6b5b50;
+  margin-bottom: 24px;
+}
+.btn {
+  display: block;
+  width: 180px;
+  padding: 10px;
+  border: 2px solid;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 14px;
+  cursor: pointer;
+  background: transparent;
+  transition: transform 0.2s;
+  text-align: center;
+  margin: 6px auto;
+}
+.btn:hover { transform: scale(1.05); }
+.btn-primary {
+  background: #4a7c59;
+  border-color: #6ba368;
+  color: white;
+}
+.btn-secondary {
+  border-color: #4a4a5a;
+  color: #8b7e74;
+}
+.btn-small {
+  width: 140px;
+  padding: 8px;
+  font-size: 12px;
+}
+#menu-high-score {
+  font-size: 12px;
+  color: #6b5b50;
+  margin-top: 16px;
+}
+#gameover-ui { background: rgba(5, 5, 15, 0.85); }
+#gameover-ui h2 { font-size: 24px; color: #667788; margin-bottom: 12px; }
+#gameover-score { font-size: 14px; color: #f0c040; margin-bottom: 4px; }
+#gameover-high { font-size: 12px; color: #6b5b50; margin-bottom: 16px; }
+#gameover-quote {
+  font-size: 12px;
+  font-style: italic;
+  max-width: 280px;
+  text-align: center;
+  line-height: 1.8;
+  color: #556677;
+  margin-bottom: 16px;
+}
+#settings-ui {
+  background: rgba(10, 10, 20, 0.92);
+  overflow-y: auto;
+  padding: 20px;
+}
+#settings-ui h2 { font-size: 20px; margin-bottom: 16px; }
+.settings-section { margin-bottom: 16px; }
+.settings-section h3 {
+  font-size: 13px;
+  color: #8b7e74;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.settings-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.setting-chip {
+  padding: 6px 12px;
+  border: 2px solid #3a3a4a;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #8b7e74;
+  background: transparent;
+  font-family: monospace;
+}
+.setting-chip.selected {
+  border-color: #6ba368;
+  color: #e8d5b7;
+}
+
+/* Responsive */
+@media (max-width: 440px) {
+  #game-container {
+    width: 95vmin;
+    height: 95vmin;
+  }
+  #score-bar, #controls-hint {
+    max-width: 95vmin;
+  }
+  #menu-ui h1 { font-size: 22px; }
+  .btn { width: 150px; font-size: 12px; }
+  #settings-ui { padding: 12px; }
+  .setting-chip { font-size: 11px; padding: 5px 8px; }
+}
+</style>
+</head>
+<body>
+  <div id="score-bar">
+    <div>得分: <span class="current" id="score-display">0</span></div>
+    <div>最高: <span class="high" id="high-display">0</span></div>
+  </div>
+
+  <div id="game-container">
+    <canvas id="canvas" width="400" height="400"></canvas>
+
+    <div id="menu-ui" class="ui-overlay active">
+      <h1>TZT贪吃的蛇</h1>
+      <div class="subtitle">GLUTTONOUS SNAKE</div>
+      <button class="btn btn-primary" id="btn-start">&#9654; 开始游戏</button>
+      <button class="btn btn-secondary" id="btn-settings">&#127912; 外观设置</button>
+      <div id="menu-high-score">最高纪录: <span id="menu-high">0</span></div>
+    </div>
+
+    <div id="gameover-ui" class="ui-overlay">
+      <h2>Game Over</h2>
+      <div id="gameover-score">得分: 0</div>
+      <div id="gameover-high">最高: 0</div>
+      <div id="gameover-quote">"贪吃的蛇永不言弃，每一口都是新的开始。"</div>
+      <button class="btn btn-secondary btn-small" id="btn-restart">&#8635; 重新开始</button>
+      <button class="btn btn-secondary btn-small" id="btn-menu">&#8962; 主菜单</button>
+    </div>
+
+    <div id="settings-ui" class="ui-overlay">
+      <h2>外观设置</h2>
+      <div class="settings-section">
+        <h3>蛇身颜色</h3>
+        <div class="settings-options" id="opt-snake"></div>
+      </div>
+      <div class="settings-section">
+        <h3>背景色</h3>
+        <div class="settings-options" id="opt-bg"></div>
+      </div>
+      <div class="settings-section">
+        <h3>网格样式</h3>
+        <div class="settings-options" id="opt-grid"></div>
+      </div>
+      <div class="settings-section">
+        <h3>食物样式</h3>
+        <div class="settings-options" id="opt-food"></div>
+      </div>
+      <button class="btn btn-secondary" id="settings-back">返回</button>
+    </div>
+  </div>
+
+  <div id="controls-hint">WASD / 方向键 控制移动</div>
+
+  <script>
+// ============================================================
+// CONFIG
+// ============================================================
+const CONFIG = {
+  GRID_SIZE: 20,
+  CELL_SIZE: 20,
+  CANVAS_SIZE: 400,
+  INITIAL_SPEED: 150,
+  MIN_SPEED: 80,
+  SPEED_DECREMENT: 10,
+  SPEED_INTERVAL: 10,
+};
+
+// ============================================================
+// THEMES
+// ============================================================
+const THEMES = {
+  snake: {
+    '经典绿': { head: '#4a7c59', body: '#3a6249', border: '#2a4a35', eye: '#ffffff' },
+    '霓虹粉': { head: '#e84393', body: '#c0392b', border: '#a02040', eye: '#ffffff' },
+    '冰蓝':   { head: '#0984e3', body: '#0652DD', border: '#003d99', eye: '#ffffff' },
+    '暗夜紫': { head: '#6c5ce7', body: '#5641d4', border: '#3d2e8f', eye: '#ffffff' },
+    '琥珀金': { head: '#e8a020', body: '#c08018', border: '#906010', eye: '#ffffff' },
+    '珊瑚橙': { head: '#e17055', body: '#c0503a', border: '#903020', eye: '#ffffff' },
+  },
+  bg: {
+    '深海':   '#0f172a',
+    '森林':   '#0f1a0f',
+    '沙漠':   '#1a1510',
+    '樱花':   '#1a0f15',
+    '极简白': '#f5f5f5',
+    '深空':   '#0a0a14',
+  },
+  grid: {
+    '隐约': { type: 'lines', opacity: 0.08 },
+    '清晰': { type: 'lines', opacity: 0.25 },
+    '无网格': { type: 'none', opacity: 0 },
+    '点阵': { type: 'dots', opacity: 0.2 },
+  },
+  food: {
+    '经典苹果': { shape: 'square', color: '#e74c3c', glow: '#ff6b6b' },
+    '星星':    { shape: 'star', color: '#f0c040', glow: '#ffe066' },
+    '蓝莓':    { shape: 'circle', color: '#3498db', glow: null },
+    '钻石':    { shape: 'diamond', color: '#9b59b6', glow: '#c39bd3' },
+  },
+};
+
+// ============================================================
+// ThemeManager
+// ============================================================
+class ThemeManager {
+  constructor() {
+    this.defaultTheme = {
+      snake: '经典绿',
+      bg: '深空',
+      grid: '隐约',
+      food: '经典苹果',
+    };
+    this.current = { ...this.defaultTheme };
+    this.load();
+
+    // Transition state
+    this.transitioning = false;
+    this.transitionProgress = 0;
+    this.transitionDuration = 400;
+    this.prevColors = null;
+  }
+
+  load() {
+    try {
+      const saved = localStorage.getItem('tzt-theme');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        Object.assign(this.current, parsed);
+      }
+    } catch (_) {
+      // ignore corrupt storage
+    }
+  }
+
+  save() {
+    try {
+      localStorage.setItem('tzt-theme', JSON.stringify(this.current));
+    } catch (_) {
+      // storage full or unavailable
+    }
+  }
+
+  set(key, value) {
+    this.current[key] = value;
+    this.save();
+  }
+
+  get snake() { return THEMES.snake[this.current.snake] || THEMES.snake['经典绿']; }
+  get bg()    { return THEMES.bg[this.current.bg] || THEMES.bg['深空']; }
+  get grid()  { return THEMES.grid[this.current.grid] || THEMES.grid['隐约']; }
+  get food()  { return THEMES.food[this.current.food] || THEMES.food['经典苹果']; }
+
+  startTransition() {
+    this.prevColors = {
+      bg: this.bg,
+      snake: { ...this.snake },
+      food: { ...this.food },
+    };
+    this.transitioning = true;
+    this.transitionProgress = 0;
+  }
+
+  updateTransition(dt) {
+    if (!this.transitioning) return;
+    this.transitionProgress += dt / this.transitionDuration;
+    if (this.transitionProgress >= 1) {
+      this.transitionProgress = 1;
+      this.transitioning = false;
+    }
+  }
+
+  lerpColor(a, b, t) {
+    const ah = parseInt(a.replace('#', ''), 16);
+    const bh = parseInt(b.replace('#', ''), 16);
+    const ar = (ah >> 16) & 0xff, ag = (ah >> 8) & 0xff, ab = ah & 0xff;
+    const br = (bh >> 16) & 0xff, bgr = (bh >> 8) & 0xff, bb = bh & 0xff;
+    const rr = Math.round(ar + (br - ar) * t);
+    const rg = Math.round(ag + (bgr - ag) * t);
+    const rb = Math.round(ab + (bb - ab) * t);
+    return '#' + ((1 << 24) + (rr << 16) + (rg << 8) + rb).toString(16).slice(1);
+  }
+
+  getColor(key) {
+    if (!this.transitioning || !this.prevColors) return this[key];
+    const t = this.transitionProgress;
+    const cur = this[key];
+    const prev = this.prevColors[key];
+    if (typeof cur === 'string' && typeof prev === 'string') {
+      return this.lerpColor(prev, cur, t);
+    }
+    // For snake object with sub-colors
+    if (typeof cur === 'object' && prev) {
+      const result = {};
+      for (const k of Object.keys(cur)) {
+        result[k] = (typeof cur[k] === 'string' && cur[k].startsWith('#'))
+          ? this.lerpColor(prev[k] || cur[k], cur[k], t)
+          : cur[k];
+      }
+      return result;
+    }
+    return cur;
+  }
+}
+
+// ============================================================
+// PixelRenderer
+// ============================================================
+class PixelRenderer {
+  constructor(canvas, theme) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.theme = theme;
+    this.foodGlowPhase = 0;
+    this.scorePopups = [];
+    this.flashAlpha = 0;
+  }
+
+  clear() {
+    const ctx = this.ctx;
+    ctx.fillStyle = this.theme.bg;
+    ctx.fillRect(0, 0, CONFIG.CANVAS_SIZE, CONFIG.CANVAS_SIZE);
+  }
+
+  drawGrid() {
+    const grid = this.theme.grid;
+    if (grid.type === 'none') return;
+
+    const ctx = this.ctx;
+    const cs = CONFIG.CELL_SIZE;
+    const size = CONFIG.CANVAS_SIZE;
+
+    if (grid.type === 'lines') {
+      ctx.strokeStyle = `rgba(255, 255, 255, ${grid.opacity})`;
+      ctx.lineWidth = 0.5;
+      for (let i = 1; i < CONFIG.GRID_SIZE; i++) {
+        const p = i * cs;
+        ctx.beginPath();
+        ctx.moveTo(p, 0);
+        ctx.lineTo(p, size);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, p);
+        ctx.lineTo(size, p);
+        ctx.stroke();
+      }
+    } else if (grid.type === 'dots') {
+      ctx.fillStyle = `rgba(255, 255, 255, ${grid.opacity})`;
+      for (let i = 1; i < CONFIG.GRID_SIZE; i++) {
+        for (let j = 1; j < CONFIG.GRID_SIZE; j++) {
+          ctx.beginPath();
+          ctx.arc(i * cs, j * cs, 1, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  }
+
+  drawSnake(snake, direction) {
+    if (!snake || !snake.length) return;
+    const ctx = this.ctx;
+    const cs = CONFIG.CELL_SIZE;
+    const snakeColors = this.theme.getColor('snake');
+    const r = 4; // corner radius
+
+    for (let i = snake.length - 1; i >= 0; i--) {
+      const seg = snake[i];
+      const x = seg.x * cs;
+      const y = seg.y * cs;
+      const isHead = i === 0;
+      const color = isHead ? snakeColors.head : snakeColors.body;
+
+      // Rounded rect body
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + cs - r, y);
+      ctx.quadraticCurveTo(x + cs, y, x + cs, y + r);
+      ctx.lineTo(x + cs, y + cs - r);
+      ctx.quadraticCurveTo(x + cs, y + cs, x + cs - r, y + cs);
+      ctx.lineTo(x + r, y + cs);
+      ctx.quadraticCurveTo(x, y + cs, x, y + cs - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+      ctx.fill();
+
+      // Border
+      ctx.strokeStyle = snakeColors.border;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Eyes on head
+      if (isHead) {
+        ctx.fillStyle = snakeColors.eye;
+        const cx = x + cs / 2;
+        const cy = y + cs / 2;
+        const eyeR = 2.5;
+        const off = 4;
+
+        let e1x, e1y, e2x, e2y;
+        if (direction === 'up') {
+          e1x = cx - off; e1y = cy - off + 1;
+          e2x = cx + off; e2y = cy - off + 1;
+        } else if (direction === 'down') {
+          e1x = cx - off; e1y = cy + off - 1;
+          e2x = cx + off; e2y = cy + off - 1;
+        } else if (direction === 'left') {
+          e1x = cx - off + 1; e1y = cy - off;
+          e2x = cx - off + 1; e2y = cy + off;
+        } else {
+          // right (default)
+          e1x = cx + off - 1; e1y = cy - off;
+          e2x = cx + off - 1; e2y = cy + off;
+        }
+
+        ctx.beginPath();
+        ctx.arc(e1x, e1y, eyeR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(e2x, e2y, eyeR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  drawFood(food, dt) {
+    if (!food) return;
+    const ctx = this.ctx;
+    const cs = CONFIG.CELL_SIZE;
+    const x = food.x * cs + cs / 2;
+    const y = food.y * cs + cs / 2;
+    const foodTheme = this.theme.food;
+
+    // Breathing glow
+    this.foodGlowPhase += dt * 0.004;
+    const glowIntensity = (Math.sin(this.foodGlowPhase) + 1) / 2; // 0..1
+
+    if (foodTheme.glow) {
+      ctx.shadowColor = foodTheme.glow;
+      ctx.shadowBlur = 6 + glowIntensity * 8;
+    }
+
+    ctx.fillStyle = foodTheme.color;
+
+    if (foodTheme.shape === 'square') {
+      const s = cs * 0.7;
+      ctx.fillRect(x - s / 2, y - s / 2, s, s);
+    } else if (foodTheme.shape === 'circle') {
+      ctx.beginPath();
+      ctx.arc(x, y, cs * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (foodTheme.shape === 'diamond') {
+      const s = cs * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(x, y - s);
+      ctx.lineTo(x + s, y);
+      ctx.lineTo(x, y + s);
+      ctx.lineTo(x - s, y);
+      ctx.closePath();
+      ctx.fill();
+    } else if (foodTheme.shape === 'star') {
+      const outerR = cs * 0.4;
+      const innerR = cs * 0.18;
+      const spikes = 5;
+      ctx.beginPath();
+      for (let i = 0; i < spikes * 2; i++) {
+        const rad = (i * Math.PI) / spikes - Math.PI / 2;
+        const radius = i % 2 === 0 ? outerR : innerR;
+        const px = x + Math.cos(rad) * radius;
+        const py = y + Math.sin(rad) * radius;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Reset shadow
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+  }
+
+  addScorePopup(score, x, y) {
+    this.scorePopups.push({
+      text: `+${score}`,
+      x: x * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2,
+      y: y * CONFIG.CELL_SIZE,
+      alpha: 1,
+      vy: -0.8,
+    });
+  }
+
+  triggerFlash() {
+    this.flashAlpha = 0.3;
+  }
+
+  drawOverlays(dt) {
+    const ctx = this.ctx;
+
+    // Score popups
+    for (let i = this.scorePopups.length - 1; i >= 0; i--) {
+      const p = this.scorePopups[i];
+      p.y += p.vy;
+      p.alpha -= 0.02;
+      if (p.alpha <= 0) {
+        this.scorePopups.splice(i, 1);
+        continue;
+      }
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = '#f0c040';
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.text, p.x, p.y);
+      ctx.globalAlpha = 1;
+    }
+
+    // White flash overlay
+    if (this.flashAlpha > 0) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${this.flashAlpha})`;
+      ctx.fillRect(0, 0, CONFIG.CANVAS_SIZE, CONFIG.CANVAS_SIZE);
+      this.flashAlpha -= 0.015;
+      if (this.flashAlpha < 0) this.flashAlpha = 0;
+    }
+  }
+}
+
+// ============================================================
+// SnakeGame
+// ============================================================
+class SnakeGame {
+  constructor() {
+    this.state = 'MENU';
+    this.snake = [];
+    this.direction = { x: 1, y: 0 };
+    this.nextDirection = { x: 1, y: 0 };
+    this.food = { x: 0, y: 0 };
+    this.score = 0;
+    this.highScore = parseInt(localStorage.getItem('tzt-highscore')) || 0;
+    this.speed = CONFIG.INITIAL_SPEED;
+    this.tickTimer = 0;
+    this.inputQueue = [];
+  }
+
+  init() {
+    this.snake = [
+      { x: 5, y: 10 },
+      { x: 4, y: 10 },
+      { x: 3, y: 10 },
+    ];
+    this.direction = { x: 1, y: 0 };
+    this.nextDirection = { x: 1, y: 0 };
+    this.food = { x: 0, y: 0 };
+    this.score = 0;
+    this.speed = CONFIG.INITIAL_SPEED;
+    this.inputQueue = [];
+    this.spawnFood();
+    this.updateScoreDisplay();
+  }
+
+  spawnFood() {
+    const occupied = new Set(this.snake.map(s => s.x + ',' + s.y));
+    if (occupied.size >= CONFIG.GRID_SIZE * CONFIG.GRID_SIZE) return;
+    let pos;
+    do {
+      pos = {
+        x: Math.floor(Math.random() * CONFIG.GRID_SIZE),
+        y: Math.floor(Math.random() * CONFIG.GRID_SIZE),
+      };
+    } while (occupied.has(pos.x + ',' + pos.y));
+    this.food = pos;
+  }
+
+  setDirection(dx, dy) {
+    this.inputQueue.push({ x: dx, y: dy });
+  }
+
+  tick() {
+    // Process queued input
+    while (this.inputQueue.length > 0) {
+      const input = this.inputQueue.shift();
+      if (input.x !== -this.direction.x || input.y !== -this.direction.y) {
+        this.direction = { x: input.x, y: input.y };
+        break;
+      }
+    }
+
+    // Move head
+    const head = this.snake[0];
+    const newHead = {
+      x: head.x + this.direction.x,
+      y: head.y + this.direction.y,
+    };
+
+    // Wall collision
+    if (
+      newHead.x < 0 || newHead.x >= CONFIG.GRID_SIZE ||
+      newHead.y < 0 || newHead.y >= CONFIG.GRID_SIZE
+    ) {
+      this.die();
+      return;
+    }
+
+    // Self collision
+    for (let i = 0; i < this.snake.length - 1; i++) {
+      if (this.snake[i].x === newHead.x && this.snake[i].y === newHead.y) {
+        this.die();
+        return;
+      }
+    }
+
+    this.snake.unshift(newHead);
+
+    // Food collision
+    if (newHead.x === this.food.x && newHead.y === this.food.y) {
+      this.score++;
+      audio.playEat(this.score % 10 === 0);
+      renderer.addScorePopup(1, this.food.x, this.food.y);
+      renderer.triggerFlash();
+
+      if (this.score % CONFIG.SPEED_INTERVAL === 0 && this.speed > CONFIG.MIN_SPEED) {
+        this.speed -= CONFIG.SPEED_DECREMENT;
+      }
+
+      if (this.score > this.highScore) {
+        this.highScore = this.score;
+        localStorage.setItem('tzt-highscore', String(this.highScore));
+      }
+
+      this.updateScoreDisplay();
+      this.spawnFood();
+    } else {
+      this.snake.pop();
+    }
+  }
+
+  die() {
+    this.state = 'GAME_OVER';
+    this.deathTime = performance.now();
+    audio.playDeath();
+    audio.switchToMelancholy();
+    this.showGameOver();
+  }
+
+  startGame() {
+    theme.startTransition();
+    this.state = 'PLAYING';
+    tickAccum = 0;
+    this.init();
+    this.hideAllUI();
+    document.getElementById('score-bar').style.display = 'flex';
+    document.getElementById('controls-hint').style.display = 'block';
+    audio.switchToBGM();
+  }
+
+  showGameOver() {
+    document.getElementById('gameover-score').textContent = '得分: ' + this.score;
+    document.getElementById('gameover-high').textContent = '最高: ' + this.highScore;
+    document.getElementById('gameover-quote').textContent = quoteEngine.getQuote(this.score);
+    document.getElementById('gameover-ui').classList.add('active');
+    document.getElementById('score-bar').style.display = 'none';
+    document.getElementById('controls-hint').style.display = 'none';
+  }
+
+  showMenu() {
+    this.state = 'MENU';
+    this.hideAllUI();
+    document.getElementById('menu-ui').classList.add('active');
+    document.getElementById('menu-high').textContent = this.highScore;
+    audio.switchToBGM();
+  }
+
+  hideAllUI() {
+    document.querySelectorAll('.ui-overlay').forEach(el => {
+      el.classList.remove('active');
+    });
+    document.getElementById('score-bar').style.display = 'none';
+    document.getElementById('controls-hint').style.display = 'none';
+  }
+
+  updateScoreDisplay() {
+    document.getElementById('score-display').textContent = this.score;
+    document.getElementById('high-display').textContent = this.highScore;
+    document.getElementById('menu-high').textContent = this.highScore;
+  }
+}
+
+// ============================================================
+// Audio & Quote Engines
+// ============================================================
+class AudioEngine {
+  constructor() {
+    this.ctx = null;
+    this.bgmGain = null;
+    this.sfxGain = null;
+    this.bgmNodes = [];
+    this.currentBGM = 'calm';
+    this.initialized = false;
+  }
+
+  init() {
+    if (this.initialized) return;
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.bgmGain = this.ctx.createGain();
+    this.bgmGain.gain.value = 0.15;
+    this.bgmGain.connect(this.ctx.destination);
+    this.sfxGain = this.ctx.createGain();
+    this.sfxGain.gain.value = 0.3;
+    this.sfxGain.connect(this.ctx.destination);
+    this.initialized = true;
+  }
+
+  playNote(freq, type, duration, gainNode, startDelay = 0) {
+    const osc = this.ctx.createOscillator();
+    const env = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    const now = this.ctx.currentTime + startDelay;
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(1, now + 0.01);
+    env.gain.linearRampToValueAtTime(0, now + duration);
+    osc.connect(env);
+    env.connect(gainNode);
+    osc.start(now);
+    osc.stop(now + duration);
+    this.bgmNodes.push(osc);
+  }
+
+  startBGM(type) {
+    this.stopBGM();
+    this.currentBGM = type;
+    const progressions = {
+      calm: [[261,329,392],[293,349,440],[329,392,493],[261,329,392]],
+      melancholy: [[261,311,370],[293,349,415],[233,293,349],[261,311,370]]
+    };
+    const chords = progressions[type];
+    const dur = type === 'calm' ? 2.5 : 3.5;
+    const freqMul = type === 'melancholy' ? 0.5 : 1;
+    let index = 0;
+    const playChord = () => {
+      if (!this.initialized) return;
+      const chord = chords[index % chords.length];
+      chord.forEach(f => {
+        this.playNote(f * freqMul, 'sine', dur, this.bgmGain);
+      });
+      const arpeggio = [0, 1, 2, 0, 2, 1];
+      arpeggio.forEach((ci, i) => {
+        this.playNote(chord[ci] * freqMul, 'triangle', 0.3, this.bgmGain, i * 0.4);
+      });
+      index++;
+      this._bgmTimer = setTimeout(playChord, dur * 1000);
+    };
+    playChord();
+  }
+
+  stopBGM() {
+    if (this._bgmTimer) {
+      clearTimeout(this._bgmTimer);
+      this._bgmTimer = null;
+    }
+    this.bgmNodes.forEach(n => { try { n.stop(); } catch(e) {} });
+    this.bgmNodes = [];
+  }
+
+  switchToBGM() {
+    if (!this.initialized) return;
+    const now = this.ctx.currentTime;
+    this.bgmGain.gain.linearRampToValueAtTime(0, now + 1);
+    setTimeout(() => {
+      this.bgmGain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+      this.startBGM('calm');
+    }, 1000);
+  }
+
+  switchToMelancholy() {
+    if (!this.initialized) return;
+    const now = this.ctx.currentTime;
+    this.bgmGain.gain.linearRampToValueAtTime(0, now + 1);
+    setTimeout(() => {
+      this.bgmGain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+      this.startBGM('melancholy');
+    }, 1000);
+  }
+
+  playEat(isMilestone = false) {
+    if (!this.initialized) return;
+    if (isMilestone) {
+      const notes = [523, 587, 659, 784, 880, 1047];
+      notes.forEach((f, i) => {
+        const delay = i * 0.08;
+        this.playNote(f, 'sine', 0.2, this.sfxGain, delay);
+        this.playNote(f, 'triangle', 0.25, this.sfxGain, delay);
+      });
+    } else {
+      const notes = [523, 659, 784];
+      notes.forEach((f, i) => {
+        this.playNote(f, 'sine', 0.15, this.sfxGain, i * 0.08);
+      });
+    }
+  }
+
+  playDeath() {
+    if (!this.initialized) return;
+    this.playNote(110, 'square', 0.5, this.sfxGain, 0);
+    this.playNote(82, 'square', 0.6, this.sfxGain, 0.1);
+  }
+
+  playClick() {
+    if (!this.initialized) return;
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.03);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    const env = this.ctx.createGain();
+    env.gain.setValueAtTime(0.5, this.ctx.currentTime);
+    env.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.03);
+    src.connect(env);
+    env.connect(this.sfxGain);
+    src.start();
+  }
+}
+
+class QuoteEngine {
+  constructor() {
+    this.lastIndex = { low: -1, mid: -1, high: -1 };
+    this.lowQuotes = [
+      '这么快就放弃了？和你的人生一样。',
+      '连两位数都没到，你真的很稳定——稳定地失败。',
+      '你甚至没给我机会展示忧郁。',
+      '也许贪吃蛇不适合你，试试被吃？',
+      '这条蛇都比你有毅力。',
+      '连食物都懒得为你出现。',
+      '你的操作像极了你对待生活的态度。',
+      '这么短的蛇，连寂寞都缠不住。',
+      '失败来得太快，忧郁都没来得及酝酿。',
+      '你以为你在玩游戏，其实游戏在玩你。'
+    ];
+    this.midQuotes = [
+      '越努力越长，越长越容易绊倒自己。',
+      '每一口食物都填补不了内心的空虚，就像每一次得分都治愈不了深夜的孤独。',
+      '你跑得越快，孤独追得越紧。',
+      '蛇的宿命就是不断吃、不断长、不断撞。像极了人生。',
+      '得分不过是延迟了失败的到来。',
+      '你咬到的每一口，都是命运早已写好的剧本。',
+      '成长的代价，是失去转身的自由。',
+      '你已经很长了，但没有人真正看见你。',
+      '每一节身体都是一个回不去的决定。',
+      '你以为前方有光，其实前方只有墙。'
+    ];
+    this.highQuotes = [
+      '你已经很努力了，但有些墙是注定要撞的。',
+      '最高纪录是 42，但孤独的纪录是永远。',
+      '你比大多数人都强，但那又怎样？',
+      '蛇越长越危险，人越强越孤单。',
+      '到达顶峰才发现，高处不胜寒。',
+      '你的坚持令人敬佩，但结局早已注定。',
+      '所有辉煌终将归于尘土，所有得分终将归于零。',
+      '你以为赢了，其实只是输得比较晚。',
+      '长到极致，就是自我吞噬的开始。',
+      '这个世界奖励你的努力，然后在你最骄傲时收回一切。'
+    ];
+  }
+
+  getQuote(score) {
+    let range, quotes;
+    if (score < 10) {
+      range = 'low';
+      quotes = this.lowQuotes;
+    } else if (score <= 30) {
+      range = 'mid';
+      quotes = this.midQuotes;
+    } else {
+      range = 'high';
+      quotes = this.highQuotes;
+    }
+    let idx;
+    do {
+      idx = Math.floor(Math.random() * quotes.length);
+    } while (idx === this.lastIndex[range] && quotes.length > 1);
+    this.lastIndex[range] = idx;
+    return '“' + quotes[idx] + '”';
+  }
+}
+
+// ============================================================
+// Initialization
+// ============================================================
+const canvas = document.getElementById('canvas');
+const theme = new ThemeManager();
+const renderer = new PixelRenderer(canvas, theme);
+const audio = new AudioEngine();
+const quoteEngine = new QuoteEngine();
+const game = new SnakeGame();
+
+// ============================================================
+// Keyboard Input
+// ============================================================
+document.addEventListener('keydown', function(e) {
+  if (game.state !== 'PLAYING') return;
+  switch (e.key) {
+    case 'ArrowUp':    case 'w': case 'W': game.setDirection(0, -1); e.preventDefault(); break;
+    case 'ArrowDown':  case 's': case 'S': game.setDirection(0, 1);  e.preventDefault(); break;
+    case 'ArrowLeft':  case 'a': case 'A': game.setDirection(-1, 0); e.preventDefault(); break;
+    case 'ArrowRight': case 'd': case 'D': game.setDirection(1, 0);  e.preventDefault(); break;
+  }
+});
+
+// ============================================================
+// Touch Input
+// ============================================================
+let touchStartX = 0, touchStartY = 0;
+
+canvas.addEventListener('touchstart', function(e) {
+  const t = e.touches[0];
+  touchStartX = t.clientX;
+  touchStartY = t.clientY;
+  e.preventDefault();
+}, { passive: false });
+
+canvas.addEventListener('touchend', function(e) {
+  if (game.state !== 'PLAYING') return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStartX;
+  const dy = t.clientY - touchStartY;
+  const absDx = Math.abs(dx);
+  const absDy = Math.abs(dy);
+  if (Math.max(absDx, absDy) < 20) return;
+  if (absDx > absDy) {
+    game.setDirection(dx > 0 ? 1 : -1, 0);
+  } else {
+    game.setDirection(0, dy > 0 ? 1 : -1);
+  }
+});
+
+// ============================================================
+// Settings Panel
+// ============================================================
+function populateSettings() {
+  const sections = [
+    { key: 'snake', container: 'opt-snake', options: THEMES.snake },
+    { key: 'bg', container: 'opt-bg', options: THEMES.bg },
+    { key: 'grid', container: 'opt-grid', options: THEMES.grid },
+    { key: 'food', container: 'opt-food', options: THEMES.food },
+  ];
+
+  sections.forEach(({ key, container, options }) => {
+    const el = document.getElementById(container);
+    el.innerHTML = '';
+    Object.keys(options).forEach(name => {
+      const chip = document.createElement('button');
+      chip.className = 'setting-chip' + (theme.current[key] === name ? ' selected' : '');
+      chip.textContent = name;
+
+      // Color preview for snake and food
+      if (key === 'snake') {
+        chip.style.borderLeft = '6px solid ' + options[name].head;
+      } else if (key === 'bg') {
+        chip.style.borderLeft = '6px solid ' + options[name];
+      } else if (key === 'food') {
+        chip.style.borderLeft = '6px solid ' + options[name].color;
+      }
+
+      chip.addEventListener('click', () => {
+        audio.playClick();
+        theme.set(key, name);
+        el.querySelectorAll('.setting-chip').forEach(c => c.classList.remove('selected'));
+        chip.classList.add('selected');
+      });
+
+      el.appendChild(chip);
+    });
+  });
+}
+
+// ============================================================
+// Button Handlers
+// ============================================================
+document.getElementById('btn-start').addEventListener('click', function() {
+  audio.init();
+  audio.playClick();
+  game.startGame();
+});
+
+document.getElementById('btn-settings').addEventListener('click', function() {
+  audio.init();
+  audio.playClick();
+  game.hideAllUI();
+  document.getElementById('settings-ui').classList.add('active');
+  if (typeof populateSettings === 'function') populateSettings();
+});
+
+document.getElementById('btn-restart').addEventListener('click', function() {
+  audio.playClick();
+  game.startGame();
+});
+
+document.getElementById('btn-menu').addEventListener('click', function() {
+  audio.playClick();
+  game.showMenu();
+});
+
+document.getElementById('settings-back').addEventListener('click', function() {
+  audio.playClick();
+  game.showMenu();
+});
+
+// ============================================================
+// Game Loop
+// ============================================================
+let lastTime = 0;
+let tickAccum = 0;
+
+function getDirectionString(dir) {
+  if (dir.y === -1) return 'up';
+  if (dir.y === 1) return 'down';
+  if (dir.x === -1) return 'left';
+  return 'right';
+}
+
+// Menu particles
+const menuParticles = [];
+for (let i = 0; i < 30; i++) {
+  menuParticles.push({
+    x: Math.random() * CONFIG.CANVAS_SIZE,
+    y: Math.random() * CONFIG.CANVAS_SIZE,
+    vx: (Math.random() - 0.5) * 0.4,
+    vy: (Math.random() - 0.5) * 0.4,
+    size: 2 + Math.random() * 4,
+    alpha: 0.2 + Math.random() * 0.4,
+  });
+}
+
+function updateMenuParticles(dt) {
+  const ctx = renderer.ctx;
+  for (const p of menuParticles) {
+    p.x += p.vx;
+    p.y += p.vy;
+    if (p.x < 0) p.x += CONFIG.CANVAS_SIZE;
+    if (p.x > CONFIG.CANVAS_SIZE) p.x -= CONFIG.CANVAS_SIZE;
+    if (p.y < 0) p.y += CONFIG.CANVAS_SIZE;
+    if (p.y > CONFIG.CANVAS_SIZE) p.y -= CONFIG.CANVAS_SIZE;
+    ctx.fillStyle = 'rgba(232, 213, 183, ' + p.alpha + ')';
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+  }
+}
+
+// Rain drops
+const rainDrops = [];
+for (let i = 0; i < 60; i++) {
+  rainDrops.push({
+    x: Math.random() * CONFIG.CANVAS_SIZE,
+    y: Math.random() * CONFIG.CANVAS_SIZE,
+    speed: 2 + Math.random() * 4,
+    length: 10 + Math.random() * 20,
+    alpha: 0.15 + Math.random() * 0.3,
+  });
+}
+
+function updateRain(dt) {
+  const ctx = renderer.ctx;
+  for (const drop of rainDrops) {
+    drop.y += drop.speed;
+    if (drop.y > CONFIG.CANVAS_SIZE) {
+      drop.y = -drop.length;
+      drop.x = Math.random() * CONFIG.CANVAS_SIZE;
+    }
+    ctx.strokeStyle = 'rgba(100, 136, 170, ' + drop.alpha + ')';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(drop.x, drop.y);
+    ctx.lineTo(drop.x, drop.y + drop.length);
+    ctx.stroke();
+  }
+}
+
+function gameLoop(timestamp) {
+  const dt = lastTime ? timestamp - lastTime : 16;
+  lastTime = timestamp;
+
+  theme.updateTransition(dt);
+  renderer.clear();
+  renderer.drawGrid();
+
+  if (game.state === 'PLAYING') {
+    tickAccum += dt;
+    while (tickAccum >= game.speed) {
+      game.tick();
+      tickAccum -= game.speed;
+      if (game.state !== 'PLAYING') break;
+    }
+    renderer.drawSnake(game.snake, getDirectionString(game.direction));
+    renderer.drawFood(game.food, dt);
+    renderer.drawOverlays(dt);
+  } else if (game.state === 'MENU') {
+    updateMenuParticles(dt);
+  } else if (game.state === 'GAME_OVER') {
+    renderer.drawSnake(game.snake, getDirectionString(game.direction));
+    renderer.drawFood(game.food, dt);
+
+    // Dark overlay fading in
+    const elapsed = performance.now() - (game.deathTime || 0);
+    const overlayAlpha = Math.min(0.6, elapsed / 500 * 0.6);
+    const ctx = renderer.ctx;
+    ctx.fillStyle = 'rgba(5,5,15,' + overlayAlpha + ')';
+    ctx.fillRect(0, 0, CONFIG.CANVAS_SIZE, CONFIG.CANVAS_SIZE);
+
+    // Snake desaturation
+    if (elapsed < 300) {
+      const grayT = elapsed / 300;
+      ctx.save();
+      ctx.globalAlpha = grayT;
+      ctx.filter = 'grayscale(1)';
+      renderer.drawSnake(game.snake, getDirectionString(game.direction));
+      ctx.restore();
+    }
+
+    updateRain(dt);
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ============================================================
+// Start
+// ============================================================
+game.showMenu();
+requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
